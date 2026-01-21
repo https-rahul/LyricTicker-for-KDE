@@ -1,0 +1,10 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Id": "org.rahul.lyricticker",
+        "Name": "Lyric Taskbar",
+        "ServiceTypes": ["Plasma/Applet"],
+        "Icon": "audio-x-generic",
+        "Category": "Multimedia"
+    }
+}
