@@ -1,7 +1,21 @@
-from PySide6.QtCore import QObject, Signal, Property, QTimer, Slot
+import server
 
+from PySide6.QtCore import QObject, Signal, Property, QTimer, Slot
 from . import spotify_mpris
 from . import lyrics_api
+import os
+
+CACHE_DIR = os.path.expanduser("~/.cache/lyricticker")
+CACHE_FILE = os.path.expanduser("~/.cache/lyricticker/current.txt")
+
+def write_current_lyric(text: str):
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    try:
+        with open(CACHE_FILE, "w", encoding="utf-8") as f:
+            f.write(text.strip())
+    except Exception as e:
+        print("Failed to write lyric:", e)
+
 
 class LyricsProvider(QObject):
     # Signals must be defined before usage in Property decorators
@@ -44,7 +58,12 @@ class LyricsProvider(QObject):
                 break
         if new_index != self._current_index:
             self._current_index = new_index
-            self._current_lyric = self._timestamped_lyrics[new_index][1] if self._timestamped_lyrics else ""
+            self._current_lyric = (
+                self._timestamped_lyrics[new_index][1]
+                if self._timestamped_lyrics else ""
+            )
+
+            write_current_lyric(self._current_lyric)
             self.currentIndexChanged.emit()
 
     def fetch_new_song_lyrics(self, artist, title, album, duration):
