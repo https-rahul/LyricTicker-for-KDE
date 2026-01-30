@@ -2,25 +2,27 @@ import QtQuick 6.5
 import QtQuick.Controls 6.5
 
 ApplicationWindow {
+    id: window
     color: "transparent"
-    flags: Qt.FrameLessWindowHint | Qt.WindowStaysOnBottomHint
+    // flags: Qt.FramelessWindowHint | Qt.WindowStaysOnBottomHint
     visible: true
     width: 500
-    height: 180 // Increased slightly for better spacing
+    height: 180
     title: "finally bangya BCCCC"
 
     Rectangle {
         anchors.fill: parent
-        color: "#121212" // Spotify-ish dark background
+        color: "#121212"
+        radius: 10 // Optional: slightly rounded corners for a modern look
 
         Column {
             anchors.centerIn: parent
             spacing: 10
-            width: parent.width - 40 // Padding on sides
+            width: parent.width - 40
 
-            // previous line
+            // 1. Previous Line
             Text {
-                text: lyricsProvider.current_index > 0 ?
+                text: (lyricsProvider.current_index > 0 && lyricsProvider.lyrics_lines.length > 0) ?
                       lyricsProvider.lyrics_lines[lyricsProvider.current_index - 1] : ""
                 color: "#6a6a6a"
                 font.pixelSize: 14
@@ -30,11 +32,10 @@ ApplicationWindow {
                 opacity: 0.6
             }
 
-            // current line
+            // 2. Current Line
             Text {
                 id: currentLyricText
-                text: lyricsProvider.lyrics_lines.length > lyricsProvider.current_index ?
-                      lyricsProvider.lyrics_lines[lyricsProvider.current_index] : "Waiting for Spotify..."
+                text: lyricsProvider.current_lyric || ""
                 color: "#1DB954" // Spotify Green
                 font.pixelSize: 22
                 font.bold: true
@@ -42,17 +43,17 @@ ApplicationWindow {
                 width: parent.width
                 wrapMode: Text.WordWrap
 
-                // Optional: Adds a nice smooth pop when the text changes
+                // Smooth fade when the text changes
                 Behavior on text {
                     SequentialAnimation {
-                        NumberAnimation { target: currentLyricText; property: "opacity"; from: 0.5; to: 1.0; duration: 200 }
+                        NumberAnimation { target: currentLyricText; property: "opacity"; from: 0; to: 1.0; duration: 250 }
                     }
                 }
             }
 
-            // next line
+            // 3. Next Line
             Text {
-                text: lyricsProvider.lyrics_lines.length > lyricsProvider.current_index + 1 ?
+                text: (lyricsProvider.lyrics_lines.length > lyricsProvider.current_index + 1) ?
                       lyricsProvider.lyrics_lines[lyricsProvider.current_index + 1] : ""
                 color: "#6a6a6a"
                 font.pixelSize: 14
@@ -63,7 +64,4 @@ ApplicationWindow {
             }
         }
     }
-
-    // REMOVED: The manual 3000ms Timer.
-    // Python's sync_logic now triggers the updates.
 }

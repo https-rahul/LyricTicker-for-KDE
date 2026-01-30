@@ -1,122 +1,174 @@
-import server
-
-from PySide6.QtCore import QObject, Signal, Property, QTimer, Slot
-from . import spotify_mpris
-from . import lyrics_api
 import os
+import re
+import asyncio
+import logging
+from PySide6.QtCore import QObject, Signal, Property, QTimer, Slot
 
-CACHE_DIR = os.path.expanduser("~/.cache/lyricticker")
+from .models import TrackData
+from .mpris_service import MPRISService
+from .lyrics_service import LyricsService
+
+logger = logging.getLogger(__name__)
 CACHE_FILE = os.path.expanduser("~/.cache/lyricticker/current.txt")
-
-def write_current_lyric(text: str):
-    os.makedirs(CACHE_DIR, exist_ok=True)
-    try:
-        with open(CACHE_FILE, "w", encoding="utf-8") as f:
-            f.write(text.strip())
-    except Exception as e:
-        print("Failed to write lyric:", e)
 
 
 class LyricsProvider(QObject):
-    # Signals must be defined before usage in Property decorators
     lyricsLinesChanged = Signal()
     currentIndexChanged = Signal()
 
-    @Property(str, notify=currentIndexChanged)
-    def current_lyric(self):
-        return self._current_lyric
-
-    def __init__(self):
+    def __init__(self, mpris_service: MPRISService, lyrics_service: LyricsService):
         super().__init__()
+        self.mpris = mpris_service
+        self.lyrics_api = lyrics_service
+
         self._lyrics_lines = []
-        self._timestamped_lyrics = []  # List of (seconds, lyric)
-        self._current_index = 0
+        self._timestamped_lyrics = []
+        self._current_index = -1
         self._current_lyric = ""
         self._last_track_id = ""
 
         self.timer = QTimer()
-        self.timer.timeout.connect(self.sync_logic)
+        self.timer.timeout.connect(self.update_state)
         self.timer.start(200)
 
-    def sync_logic(self):
-        # 1. Get current state from Spotify
-        artist, title, album, duration, position = spotify_mpris.get_current_track()
+    def update_state(self):
+        try:
+            loop = asyncio.get_running_loop()
+            task = loop.create_task(self._async_update_wrapper())
+            task.add_done_callback(self._handle_task_result)
+        except Exception as e:
+            logger.error(f"Timer failed to schedule task: {e}")
 
-        if not artist:
+    def _handle_task_result(self, task):
+        try:
+            task.result()
+        except Exception as e:
+            logger.error(f"Task error: {e}")
+
+    async def _async_update_wrapper(self):
+        try:
+            track = await self.mpris.get_current_track()
+            if track.player != "None" and track.status == "Playing":
+                self.sync_logic(track)
+        except Exception as e:
+            logger.error(f"Error in wrapper: {e}")
+
+    def sync_logic(self, track: TrackData):
+        # 1. Handle Song Change
+        current_track_id = f"{track.artist}-{track.title}"
+        if current_track_id != self._last_track_id:
+            logger.info(f"New song detected: {current_track_id}")
+            self._last_track_id = current_track_id
+
+            # Reset state
+            self._timestamped_lyrics = []
+            self._lyrics_lines = []
+            self._current_index = -1
+            self._current_lyric = ""
+            self.currentIndexChanged.emit()
+            self.lyricsLinesChanged.emit()
+
+            asyncio.create_task(self.fetch_new_song_lyrics(track))
             return
 
-        current_track_id = f"{artist}-{title}"
-        if current_track_id != self._last_track_id:
-            self._last_track_id = current_track_id
-            self.fetch_new_song_lyrics(artist, title, album, duration)
+        # 2. Check if we have lyrics yet
+        if not self._timestamped_lyrics:
+            return
 
-        new_index = 0
+        # 3. Find correct lyric line (Sticky Logic)
+        # Default to current index so it stays on the line during gaps
+        new_index = self._current_index
+
+        # Iterate to find the last timestamp that is <= current position
         for i, (ts, text) in enumerate(self._timestamped_lyrics):
-            if position >= ts:
+            if track.position >= ts:
                 new_index = i
             else:
                 break
-        if new_index != self._current_index:
+
+        # 4. Update if index changed OR we just transitioned from "Loading"
+        # We also check if new_index is valid (>= 0)
+        if (new_index != self._current_index or self._current_lyric == "Loading lyrics...") and new_index >= 0:
             self._current_index = new_index
-            self._current_lyric = (
-                self._timestamped_lyrics[new_index][1]
-                if self._timestamped_lyrics else ""
-            )
+            self._current_lyric = self._timestamped_lyrics[new_index][1]
 
-            write_current_lyric(self._current_lyric)
             self.currentIndexChanged.emit()
+            self._write_to_cache(self._current_lyric)
 
-    def fetch_new_song_lyrics(self, artist, title, album, duration):
-        # This only runs once per song
-        raw_lyrics = lyrics_api.get_lyrics(artist, title, album, duration)
-        self._timestamped_lyrics = self.parse_synced_lyrics(raw_lyrics)
-        self._lyrics_lines = [l for _, l in self._timestamped_lyrics]
-        self.lyricsLinesChanged.emit()
+    async def fetch_new_song_lyrics(self, track: TrackData):
+        try:
+            loop = asyncio.get_running_loop()
+            raw_lyrics = await loop.run_in_executor(None, self.lyrics_api.fetch_lyrics, track)
+
+            if raw_lyrics:
+                # 1. Try to parse as synced lyrics
+                parsed = self.parse_synced_lyrics(raw_lyrics)
+
+                if parsed:
+                    # Case: Synced lyrics found (The Taylor Swift case)
+                    self._timestamped_lyrics = parsed
+                    self._lyrics_lines = [l for _, l in self._timestamped_lyrics]
+                    logger.info("✓ Synced lyrics loaded successfully")
+                else:
+                    # Case: Plain lyrics found (The Seven Lions case)
+                    logger.info("! No timestamps found. Falling back to plain text display.")
+                    # We create a single entry starting at 0.0 seconds containing the whole text
+                    self._timestamped_lyrics = [(0.0, raw_lyrics)]
+                    self._lyrics_lines = [raw_lyrics]
+
+                # 2. Update UI
+                self.lyricsLinesChanged.emit()
+
+                # 3. Force immediate sync so the text appears now
+                self.sync_logic(track)
+            else:
+                self._current_lyric = "Lyrics not found"
+                self._current_index = -1
+                self.currentIndexChanged.emit()
+                # Update cache so Plasmoid also shows 'not found'
+                self._write_to_cache(self._current_lyric)
+
+        except Exception as e:
+            logger.error(f"Failed to fetch lyrics: {e}")
 
     def parse_synced_lyrics(self, synced_lyrics):
-        import re
-        pattern = re.compile(r"\[(\d{2}):(\d{2}\.\d{2})\] (.*)")
+        if not synced_lyrics or not isinstance(synced_lyrics, str):
+            return []
+
+        # Matches [mm:ss.xx] Lyric Text
+        pattern = re.compile(r"\[(\d{2}):(\d{2}(?:\.\d+)?)]\s*(.*)")
         result = []
         for line in synced_lyrics.split("\n"):
-            match = pattern.match(line)
+            match = pattern.match(line.strip())
             if match:
                 minutes = int(match.group(1))
                 seconds = float(match.group(2))
                 total_seconds = minutes * 60 + seconds
-                lyric = match.group(3)
-                result.append((total_seconds, lyric))
+                text = match.group(3).strip()
+                # Only add if there's actual text, or handle instrumental tags
+                result.append((total_seconds, text))
+
+        # Ensure they are sorted by time
+        result.sort(key=lambda x: x[0])
         return result
 
-    #  Improvement 2: Use the new lyricsLinesChanged signal
-    @Property(list, notify=lyricsLinesChanged) 
+    def _write_to_cache(self, text: str):
+        try:
+            os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
+            output_text = text.strip()
+            with open(CACHE_FILE, "w", encoding="utf-8") as f:
+                f.write(output_text)
+        except Exception as e:
+            logger.error(f"Failed to write lyric cache: {e}")
+
+    @Property(list, notify=lyricsLinesChanged)
     def lyrics_lines(self):
         return self._lyrics_lines
 
-    #  Improvement 3: Use the new currentIndexChanged signal
-    @Property(int, notify=currentIndexChanged) 
+    @Property(int, notify=currentIndexChanged)
     def current_index(self):
         return self._current_index
 
-    def update_lyrics(self):
-        artist, title, album, duration = spotify_mpris.get_current_track()
-        synced_lyrics = lyrics_api.get_lyrics(artist, title, album, duration)
-        # Parse synced lyrics
-        timestamped = self.parse_synced_lyrics(synced_lyrics)
-        self._timestamped_lyrics = timestamped
-        self._lyrics_lines = [lyric for _, lyric in timestamped]
-        # Default to first lyric line
-        if timestamped:
-            self._current_index = 0
-            self._current_lyric = timestamped[0][1]
-        else:
-            self._current_index = 0
-            self._current_lyric = ""
-        self.lyricsLinesChanged.emit()
-        self.currentIndexChanged.emit()
-
-    @Slot()
-    def next_line(self):
-        if self._current_index < len(self._timestamped_lyrics) - 1:
-            self._current_index += 1
-            self._current_lyric = self._timestamped_lyrics[self._current_index][1]
-            self.currentIndexChanged.emit()
+    @Property(str, notify=currentIndexChanged)
+    def current_lyric(self):
+        return self._current_lyric

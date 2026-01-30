@@ -2,10 +2,8 @@ import requests
 import logging
 from pydbus import SessionBus
 
-# 1. Configure Logging
-# level=logging.DEBUG will show EVERYTHING. Change to logging.INFO for less clutter.
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 
@@ -53,7 +51,7 @@ def get_lyrics(artist, title, album, duration):
         logging.info(f"Requesting lyrics from LRCLIB for '{title}'...")
         logging.debug(f"API Params: {query_params}")
 
-        r = requests.get(url, params=query_params, timeout=10)
+        r = requests.get(url, params=query_params, timeout=5)
 
         if r.status_code == 200:
             logging.info("Lyrics successfully retrieved.")
