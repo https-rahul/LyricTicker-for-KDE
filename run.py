@@ -16,7 +16,7 @@ provider = LyricsProvider()
 engine.rootContext().setContextProperty("lyricsProvider", provider)
 
 basedir = os.path.dirname(__file__)
-qml_path = os.path.join(basedir, 'Main.qml')
+qml_path = os.path.join(basedir, 'AppWindow.qml')
 
 engine.load(QUrl.fromLocalFile(qml_path))
 

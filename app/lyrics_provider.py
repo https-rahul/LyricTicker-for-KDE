@@ -122,7 +122,7 @@ class LyricsProvider(QObject):
                 # 3. Force immediate sync so the text appears now
                 self.sync_logic(track)
             else:
-                self._current_lyric = "Lyrics not found"
+                self._current_lyric = ""
                 self._current_index = -1
                 self.currentIndexChanged.emit()
                 # Update cache so Plasmoid also shows 'not found'

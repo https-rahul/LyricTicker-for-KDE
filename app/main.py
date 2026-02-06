@@ -6,15 +6,15 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from dbus_next.aio import MessageBus
 from qasync import QEventLoop
+from aiohttp import web
 
 logging.basicConfig(
     level=logging.DEBUG,
-    format="%(asctime)s - %(levelname)s - %(message)s",
+    format="%(asctime)s | %(levelname)-8s | %(name)s:%(funcName)s:%(lineno)d - %(message)s",
     handlers=[logging.StreamHandler()],
 )
 logger = logging.getLogger("LyricTicker")
 
-# 2. Fix Pathing
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
@@ -41,6 +41,16 @@ async def main():
         # We define it here so it stays in scope
         provider = LyricsProvider(mpris_service, lyrics_service)
 
+        server_app = web.Application()
+        server_app['lyrics_provider'] = provider
+        server_app.router.add_get('/', handle_plasmoid_request)
+
+        runner = web.AppRunner(server_app)
+        await runner.setup()
+        site = web.TCPSite(runner, '127.0.0.1', 5000)
+        await site.start()
+        logger.info("Integrated server listening on port 5000")
+
         # D. Initialize QML Engine
         engine = QQmlApplicationEngine()
 
@@ -52,11 +62,11 @@ async def main():
         logger.info("✓ QML Context Properties set")
 
         # F. Load the UI
-        qml_path = str(ROOT_DIR / "Main.qml")
+        qml_path = str(ROOT_DIR / "AppWindow.qml")
         engine.load(qml_path)
 
         if not engine.rootObjects():
-            logger.error("✗ QML failed to load. Check Main.qml syntax.")
+            logger.error("✗ QML failed to load. Check AppWindow.qml syntax.")
             return
 
         # G. App Lifecycle Management
@@ -64,13 +74,22 @@ async def main():
         stop_event = asyncio.Future()
         QGuiApplication.instance().aboutToQuit.connect(lambda: stop_event.set_result(True))
 
-        logger.info("🚀 Application is running. Monitoring media...")
+        logger.info("Application is running. Monitoring media...")
         await stop_event
 
     except Exception as e:
         logger.error(f"CRITICAL FAILURE during startup: {e}", exc_info=True)
         return
 
+async def handle_plasmoid_request(request):
+    provider = request.app['lyrics_provider']
+    return web.Response(
+        text=provider.current_lyric, # Removed the 's' to match the property name
+        headers={
+            'Access-Control-Allow-Origin': '*',
+            "Content-Type": "text/plain"
+        }
+    )
 
 if __name__ == "__main__":
     # Initialize the Qt Application
