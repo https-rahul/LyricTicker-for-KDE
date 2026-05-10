@@ -27,7 +27,7 @@ async def main():
     logger.info("Starting LyricTicker Engine...")
 
     try:
-        # A. Initialize D-Bus first
+        #D-Bus
         bus = await MessageBus().connect()
         logger.info("Connected to D-Bus Session Bus")
 
@@ -84,7 +84,7 @@ async def main():
 async def handle_plasmoid_request(request):
     provider = request.app['lyrics_provider']
     return web.Response(
-        text=provider.current_lyric, # Removed the 's' to match the property name
+        text=provider.current_lyric,
         headers={
             'Access-Control-Allow-Origin': '*',
             "Content-Type": "text/plain"

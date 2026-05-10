@@ -3,14 +3,12 @@ import re
 import asyncio
 import logging
 from PySide6.QtCore import QObject, Signal, Property, QTimer, Slot
-
 from .models import TrackData
 from .mpris_service import MPRISService
 from .lyrics_service import LyricsService
 
 logger = logging.getLogger(__name__)
 CACHE_FILE = os.path.expanduser("~/.cache/lyricticker/current.txt")
-
 
 class LyricsProvider(QObject):
     lyricsLinesChanged = Signal()
@@ -54,7 +52,7 @@ class LyricsProvider(QObject):
             logger.error(f"Error in wrapper: {e}")
 
     def sync_logic(self, track: TrackData):
-        # 1. Handle Song Change
+        # Handle Song Change
         current_track_id = f"{track.artist}-{track.title}"
         if current_track_id != self._last_track_id:
             logger.info(f"New song detected: {current_track_id}")
@@ -75,19 +73,17 @@ class LyricsProvider(QObject):
         if not self._timestamped_lyrics:
             return
 
-        # 3. Find correct lyric line (Sticky Logic)
-        # Default to current index so it stays on the line during gaps
+        # correct lyric
         new_index = self._current_index
 
-        # Iterate to find the last timestamp that is <= current position
+        # last timestamp that is <= current position
         for i, (ts, text) in enumerate(self._timestamped_lyrics):
             if track.position >= ts:
                 new_index = i
             else:
                 break
 
-        # 4. Update if index changed OR we just transitioned from "Loading"
-        # We also check if new_index is valid (>= 0)
+        # check if new_index is valid (>= 0)
         if (new_index != self._current_index or self._current_lyric == "Loading lyrics...") and new_index >= 0:
             self._current_index = new_index
             self._current_lyric = self._timestamped_lyrics[new_index][1]
@@ -101,25 +97,25 @@ class LyricsProvider(QObject):
             raw_lyrics = await loop.run_in_executor(None, self.lyrics_api.fetch_lyrics, track)
 
             if raw_lyrics:
-                # 1. Try to parse as synced lyrics
+
                 parsed = self.parse_synced_lyrics(raw_lyrics)
 
                 if parsed:
-                    # Case: Synced lyrics found (The Taylor Swift case)
+                    # Case: Synced lyrics found
                     self._timestamped_lyrics = parsed
                     self._lyrics_lines = [l for _, l in self._timestamped_lyrics]
                     logger.info("✓ Synced lyrics loaded successfully")
                 else:
-                    # Case: Plain lyrics found (The Seven Lions case)
+                    # Case: Plain lyrics found
                     logger.info("! No timestamps found. Falling back to plain text display.")
                     # We create a single entry starting at 0.0 seconds containing the whole text
                     self._timestamped_lyrics = [(0.0, raw_lyrics)]
                     self._lyrics_lines = [raw_lyrics]
 
-                # 2. Update UI
+                # Update UI
                 self.lyricsLinesChanged.emit()
 
-                # 3. Force immediate sync so the text appears now
+                # Force immediate sync
                 self.sync_logic(track)
             else:
                 self._current_lyric = ""
@@ -148,7 +144,7 @@ class LyricsProvider(QObject):
                 # Only add if there's actual text, or handle instrumental tags
                 result.append((total_seconds, text))
 
-        # Ensure they are sorted by time
+        # sort by time
         result.sort(key=lambda x: x[0])
         return result
 

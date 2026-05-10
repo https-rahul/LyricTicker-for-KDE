@@ -18,7 +18,7 @@ class MPRISService:
 
     async def get_current_track(self) -> TrackData:
         try:
-            # 1. List all players
+            #all players
             reply = await self.bus.introspect('org.freedesktop.DBus', '/org/freedesktop/DBus')
             dbus_proxy = self.bus.get_proxy_object('org.freedesktop.DBus', '/org/freedesktop/DBus', reply)
             dbus_iface = dbus_proxy.get_interface('org.freedesktop.DBus')
@@ -37,8 +37,7 @@ class MPRISService:
 
     async def _query_player(self, name: str) -> Optional[TrackData]:
         try:
-            # Using the 'Message' approach (Method 2 from your test script)
-            # This is the most compatible way for both Spotify and Chrome
+            # for both Spotify and Chrome
             from dbus_next import Message
             msg = Message(
                 destination=name,
