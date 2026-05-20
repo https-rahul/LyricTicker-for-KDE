@@ -27,18 +27,15 @@ async def main():
     logger.info("Starting LyricTicker Engine...")
 
     try:
-        #D-Bus
+
         bus = await MessageBus().connect()
         logger.info("Connected to D-Bus Session Bus")
 
-        # B. Initialize Backend Services
         mpris_service = MPRISService(bus)
         lyrics_service = LyricsService()
 
         logger.info(mpris_service)
 
-        # C. Initialize the Provider (The Bridge)
-        # We define it here so it stays in scope
         provider = LyricsProvider(mpris_service, lyrics_service)
 
         server_app = web.Application()
@@ -51,17 +48,13 @@ async def main():
         await site.start()
         logger.info("Integrated server listening on port 5000")
 
-        # D. Initialize QML Engine
         engine = QQmlApplicationEngine()
 
         provider.timer.start(200)
 
-        # E. Inject Provider into QML Context
-        # This MUST happen after 'engine' is created but BEFORE 'engine.load'
         engine.rootContext().setContextProperty("lyricsProvider", provider)
         logger.info("✓ QML Context Properties set")
 
-        # F. Load the UI
         qml_path = str(ROOT_DIR / "AppWindow.qml")
         engine.load(qml_path)
 
@@ -69,8 +62,6 @@ async def main():
             logger.error("✗ QML failed to load. Check AppWindow.qml syntax.")
             return
 
-        # G. App Lifecycle Management
-        # Keep the coroutine alive until the user closes the window
         stop_event = asyncio.Future()
         QGuiApplication.instance().aboutToQuit.connect(lambda: stop_event.set_result(True))
 
@@ -92,10 +83,7 @@ async def handle_plasmoid_request(request):
     )
 
 if __name__ == "__main__":
-    # Initialize the Qt Application
     app = QGuiApplication(sys.argv)
-
-    # Create the fused Event Loop (Qt + Asyncio)
     loop = QEventLoop(app)
     asyncio.set_event_loop(loop)
 
@@ -106,6 +94,5 @@ if __name__ == "__main__":
     except Exception as e:
         logger.error(f"Unhandled Exception: {e}")
     finally:
-        # Standard cleanup
         if not loop.is_closed():
             loop.close()

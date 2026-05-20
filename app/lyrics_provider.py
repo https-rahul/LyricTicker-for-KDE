@@ -52,13 +52,12 @@ class LyricsProvider(QObject):
             logger.error(f"Error in wrapper: {e}")
 
     def sync_logic(self, track: TrackData):
-        # Handle Song Change
+
         current_track_id = f"{track.artist}-{track.title}"
         if current_track_id != self._last_track_id:
             logger.info(f"New song detected: {current_track_id}")
             self._last_track_id = current_track_id
 
-            # Reset state
             self._timestamped_lyrics = []
             self._lyrics_lines = []
             self._current_index = -1
@@ -69,21 +68,17 @@ class LyricsProvider(QObject):
             asyncio.create_task(self.fetch_new_song_lyrics(track))
             return
 
-        # 2. Check if we have lyrics yet
         if not self._timestamped_lyrics:
             return
 
-        # correct lyric
         new_index = self._current_index
 
-        # last timestamp that is <= current position
         for i, (ts, text) in enumerate(self._timestamped_lyrics):
             if track.position >= ts:
                 new_index = i
             else:
                 break
 
-        # check if new_index is valid (>= 0)
         if (new_index != self._current_index or self._current_lyric == "Loading lyrics...") and new_index >= 0:
             self._current_index = new_index
             self._current_lyric = self._timestamped_lyrics[new_index][1]
@@ -101,21 +96,21 @@ class LyricsProvider(QObject):
                 parsed = self.parse_synced_lyrics(raw_lyrics)
 
                 if parsed:
-                    # Case: Synced lyrics found
+
                     self._timestamped_lyrics = parsed
                     self._lyrics_lines = [l for _, l in self._timestamped_lyrics]
                     logger.info("✓ Synced lyrics loaded successfully")
                 else:
-                    # Case: Plain lyrics found
+
                     logger.info("! No timestamps found. Falling back to plain text display.")
                     # We create a single entry starting at 0.0 seconds containing the whole text
                     self._timestamped_lyrics = [(0.0, raw_lyrics)]
                     self._lyrics_lines = [raw_lyrics]
 
-                # Update UI
+
                 self.lyricsLinesChanged.emit()
 
-                # Force immediate sync
+
                 self.sync_logic(track)
             else:
                 self._current_lyric = ""
@@ -131,7 +126,7 @@ class LyricsProvider(QObject):
         if not synced_lyrics or not isinstance(synced_lyrics, str):
             return []
 
-        # Matches [mm:ss.xx] Lyric Text
+
         pattern = re.compile(r"\[(\d{2}):(\d{2}(?:\.\d+)?)]\s*(.*)")
         result = []
         for line in synced_lyrics.split("\n"):
@@ -144,7 +139,7 @@ class LyricsProvider(QObject):
                 # Only add if there's actual text, or handle instrumental tags
                 result.append((total_seconds, text))
 
-        # sort by time
+
         result.sort(key=lambda x: x[0])
         return result
 

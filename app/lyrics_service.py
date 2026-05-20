@@ -14,9 +14,7 @@ class LyricsService:
         })
 
     def fetch_lyrics(self, track) -> str:
-        """
-        Hits the LRCLIB API. Returns synced lyrics or a fallback string.
-        """
+
         if track.player == "None":
             return "No player active"
 
@@ -29,7 +27,6 @@ class LyricsService:
 
         try:
             logger.info(f"Searching lyrics for: {track.artist} - {track.title}")
-            # Use session for performance; timeout handles hanging requests
             response = self.session.get(self.base_url, params=params, timeout=10)
 
             if response.status_code == 404:
@@ -39,7 +36,6 @@ class LyricsService:
             response.raise_for_status()
             data = response.json()
 
-            # Prefer synced, fallback to plain, then to error string
             return data.get("syncedLyrics") or data.get("plainLyrics") or "Lyrics not found"
 
         except requests.exceptions.RequestException as e:
