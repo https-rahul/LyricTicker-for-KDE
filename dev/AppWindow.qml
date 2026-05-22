@@ -20,7 +20,7 @@ ApplicationWindow {
             spacing: 10
             width: parent.width - 40
 
-            // 1. Previous Line
+            // Previous Line
             Text {
                 text: (lyricsProvider.current_index > 0 && lyricsProvider.lyrics_lines.length > 0) ?
                       lyricsProvider.lyrics_lines[lyricsProvider.current_index - 1] : ""
@@ -32,7 +32,7 @@ ApplicationWindow {
                 opacity: 0.6
             }
 
-            // 2. Current Line
+            //Current Line
             Text {
                 id: currentLyricText
                 text: lyricsProvider.current_lyric || ""
@@ -51,7 +51,7 @@ ApplicationWindow {
                 }
             }
 
-            // 3. Next Line
+            // Next Line
             Text {
                 text: (lyricsProvider.lyrics_lines.length > lyricsProvider.current_index + 1) ?
                       lyricsProvider.lyrics_lines[lyricsProvider.current_index + 1] : ""
