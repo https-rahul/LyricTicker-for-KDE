@@ -2,10 +2,10 @@ import os
 import re
 import asyncio
 import logging
-from PySide6.QtCore import QObject, Signal, Property, QTimer, Slot
-from .models import TrackData
-from .mpris_service import MPRISService
-from .lyrics_service import LyricsService
+from PySide6.QtCore import QObject, Signal, Property, QTimer
+from backend.models import TrackData
+from backend.mpris_service import MPRISService
+from backend.lyrics.manager import LyricsManager
 
 logger = logging.getLogger(__name__)
 CACHE_FILE = os.path.expanduser("~/.cache/lyricticker/current.txt")
@@ -14,20 +14,20 @@ class LyricsProvider(QObject):
     lyricsLinesChanged = Signal()
     currentIndexChanged = Signal()
 
-    def __init__(self, mpris_service: MPRISService, lyrics_service: LyricsService):
+    def __init__(self, mpris_service: MPRISService, lyrics_manager: LyricsManager):
         super().__init__()
         self.mpris = mpris_service
-        self.lyrics_api = lyrics_service
+        self.lyrics_api = lyrics_manager          # ← renamed
 
         self._lyrics_lines = []
         self._timestamped_lyrics = []
         self._current_index = -1
         self._current_lyric = ""
         self._last_track_id = ""
+        self._last_cached_lyric = ""              # ← audit fix #12
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_state)
-        self.timer.start(200)
 
     def update_state(self):
         try:
@@ -46,13 +46,12 @@ class LyricsProvider(QObject):
     async def _async_update_wrapper(self):
         try:
             track = await self.mpris.get_current_track()
-            if track.player != "None" and track.status == "Playing":
+            if track.player is not None and track.status == "Playing":  # ← audit fix #1
                 self.sync_logic(track)
         except Exception as e:
             logger.error(f"Error in wrapper: {e}")
 
     def sync_logic(self, track: TrackData):
-
         current_track_id = f"{track.artist}-{track.title}"
         if current_track_id != self._last_track_id:
             logger.info(f"New song detected: {current_track_id}")
@@ -65,58 +64,50 @@ class LyricsProvider(QObject):
             self.currentIndexChanged.emit()
             self.lyricsLinesChanged.emit()
 
-            asyncio.create_task(self.fetch_new_song_lyrics(track))
+            loop = asyncio.get_event_loop()
+            loop.create_task(self.fetch_new_song_lyrics(track))  # ← audit fix #10
             return
 
         if not self._timestamped_lyrics:
             return
 
         new_index = self._current_index
-
         for i, (ts, text) in enumerate(self._timestamped_lyrics):
             if track.position >= ts:
                 new_index = i
             else:
                 break
 
-        if (new_index != self._current_index or self._current_lyric == "Loading lyrics...") and new_index >= 0:
+        if new_index != self._current_index and new_index >= 0:  # ← removed dead "Loading lyrics..." check
             self._current_index = new_index
             self._current_lyric = self._timestamped_lyrics[new_index][1]
-
             self.currentIndexChanged.emit()
             self._write_to_cache(self._current_lyric)
 
     async def fetch_new_song_lyrics(self, track: TrackData):
         try:
-            loop = asyncio.get_running_loop()
-            raw_lyrics = await loop.run_in_executor(None, self.lyrics_api.fetch_lyrics, track)
+            # Direct await — no run_in_executor needed, lrclib.py is now fully async
+            raw_lyrics = await self.lyrics_api.fetch_lyrics(track)
 
             if raw_lyrics:
-
                 parsed = self.parse_synced_lyrics(raw_lyrics)
-
                 if parsed:
-
                     self._timestamped_lyrics = parsed
                     self._lyrics_lines = [l for _, l in self._timestamped_lyrics]
                     logger.info("✓ Synced lyrics loaded successfully")
                 else:
-
-                    logger.info("! No timestamps found. Falling back to plain text display.")
-                    # We create a single entry starting at 0.0 seconds containing the whole text
-                    self._timestamped_lyrics = [(0.0, raw_lyrics)]
-                    self._lyrics_lines = [raw_lyrics]
-
+                    # No synced lyrics — manager already filters plain text
+                    # so this means the LRC was malformed
+                    logger.warning("Lyrics returned but no timestamps found — skipping")
+                    self._timestamped_lyrics = []
+                    self._lyrics_lines = []
 
                 self.lyricsLinesChanged.emit()
-
-
                 self.sync_logic(track)
             else:
                 self._current_lyric = ""
                 self._current_index = -1
                 self.currentIndexChanged.emit()
-                # Update cache so Plasmoid also shows 'not found'
                 self._write_to_cache(self._current_lyric)
 
         except Exception as e:
@@ -125,7 +116,6 @@ class LyricsProvider(QObject):
     def parse_synced_lyrics(self, synced_lyrics):
         if not synced_lyrics or not isinstance(synced_lyrics, str):
             return []
-
 
         pattern = re.compile(r"\[(\d{2}):(\d{2}(?:\.\d+)?)]\s*(.*)")
         result = []
@@ -136,19 +126,20 @@ class LyricsProvider(QObject):
                 seconds = float(match.group(2))
                 total_seconds = minutes * 60 + seconds
                 text = match.group(3).strip()
-                # Only add if there's actual text, or handle instrumental tags
                 result.append((total_seconds, text))
-
 
         result.sort(key=lambda x: x[0])
         return result
 
     def _write_to_cache(self, text: str):
         try:
+            # Only write if lyric actually changed — audit fix #12
+            if text == self._last_cached_lyric:
+                return
+            self._last_cached_lyric = text
             os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
-            output_text = text.strip()
             with open(CACHE_FILE, "w", encoding="utf-8") as f:
-                f.write(output_text)
+                f.write(text.strip())
         except Exception as e:
             logger.error(f"Failed to write lyric cache: {e}")
 
