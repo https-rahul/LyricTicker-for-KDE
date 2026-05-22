@@ -3,7 +3,7 @@
   "KPlugin": {
     "Id": "org.rahul.lyricticker",
     "Name": "Lyric Ticker",
-    "Description": "Displays currently playing song lyrics",
+    "Description": "Displays current track's lyrics",
     "Version": "0.1.0",
     "Website": "",
     "Category": "Multimedia",
