@@ -1,8 +1,7 @@
 import logging
-import asyncio
 from typing import Optional
 from dbus_next.signature import Variant
-from .models import TrackData
+from backend.models import TrackData
 
 logger = logging.getLogger(__name__)
 

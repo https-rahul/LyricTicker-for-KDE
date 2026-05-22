@@ -2,11 +2,21 @@ import logging
 import sys
 import asyncio
 from pathlib import Path
+
+# Fix path BEFORE any local imports
+ROOT_DIR = Path(__file__).resolve().parent.parent
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from dbus_next.aio import MessageBus
 from qasync import QEventLoop
 from aiohttp import web
+
+from backend.mpris_service import MPRISService
+from backend.lyrics_provider import LyricsProvider
+from backend.lyrics.manager import LyricsManager
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -15,28 +25,17 @@ logging.basicConfig(
 )
 logger = logging.getLogger("LyricTicker")
 
-ROOT_DIR = Path(__file__).resolve().parent.parent
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
-
-from app.mpris_service import MPRISService
-from app.lyrics_service import LyricsService
-from app.lyrics_provider import LyricsProvider
-
 async def main():
     logger.info("Starting LyricTicker Engine...")
-
     try:
-
         bus = await MessageBus().connect()
         logger.info("Connected to D-Bus Session Bus")
 
         mpris_service = MPRISService(bus)
-        lyrics_service = LyricsService()
+        lyrics_manager = LyricsManager()
+        logger.info("MPRISService initialised")
 
-        logger.info(mpris_service)
-
-        provider = LyricsProvider(mpris_service, lyrics_service)
+        provider = LyricsProvider(mpris_service, lyrics_manager)  # ← updated
 
         server_app = web.Application()
         server_app['lyrics_provider'] = provider
@@ -44,29 +43,30 @@ async def main():
 
         runner = web.AppRunner(server_app)
         await runner.setup()
-        site = web.TCPSite(runner, '127.0.0.1', 5000)
-        await site.start()
-        logger.info("Integrated server listening on port 5000")
+        try:
+            site = web.TCPSite(runner, '127.0.0.1', 5000)
+            await site.start()
+            logger.info("Integrated server listening on port 5000")
 
-        engine = QQmlApplicationEngine()
+            engine = QQmlApplicationEngine()
+            provider.timer.start(200)
+            engine.rootContext().setContextProperty("lyricsProvider", provider)
+            logger.info("✓ QML Context Properties set")
 
-        provider.timer.start(200)
+            qml_path = str(ROOT_DIR / "dev" / "AppWindow.qml")  # ← updated path
+            engine.load(qml_path)
+            if not engine.rootObjects():
+                logger.error("✗ QML failed to load. Check AppWindow.qml syntax.")
+                return
 
-        engine.rootContext().setContextProperty("lyricsProvider", provider)
-        logger.info("✓ QML Context Properties set")
-
-        qml_path = str(ROOT_DIR / "AppWindow.qml")
-        engine.load(qml_path)
-
-        if not engine.rootObjects():
-            logger.error("✗ QML failed to load. Check AppWindow.qml syntax.")
-            return
-
-        stop_event = asyncio.Future()
-        QGuiApplication.instance().aboutToQuit.connect(lambda: stop_event.set_result(True))
-
-        logger.info("Application is running. Monitoring media...")
-        await stop_event
+            stop_event = asyncio.Future()
+            QGuiApplication.instance().aboutToQuit.connect(
+                lambda: stop_event.set_result(True)
+            )
+            logger.info("Application is running. Monitoring media...")
+            await stop_event
+        finally:
+            await runner.cleanup()
 
     except Exception as e:
         logger.error(f"CRITICAL FAILURE during startup: {e}", exc_info=True)
@@ -86,7 +86,6 @@ if __name__ == "__main__":
     app = QGuiApplication(sys.argv)
     loop = QEventLoop(app)
     asyncio.set_event_loop(loop)
-
     try:
         loop.run_until_complete(main())
     except KeyboardInterrupt:

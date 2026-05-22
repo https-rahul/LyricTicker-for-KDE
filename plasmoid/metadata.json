@@ -1,0 +1,19 @@
+{
+  "KPackageStructure": "Plasma/Applet",
+  "KPlugin": {
+    "Id": "org.rahul.lyricticker",
+    "Name": "Lyric Ticker",
+    "Description": "Displays currently playing song lyrics",
+    "Version": "0.1.0",
+    "Website": "https://github.com/https-rahul/LyricTicker-for-KDE",
+    "Category": "Multimedia",
+    "License": "GPL-3.0",
+    "Authors": [
+      {
+        "Name": "Rahul Gaur",
+        "Email": "rahulatlunch@gmail.com"
+      }
+    ]
+  },
+  "X-Plasma-API-Minimum-Version": "6.0"
+}
