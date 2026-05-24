@@ -23,7 +23,8 @@ A lightweight KDE Plasma 6 widget that displays real-time synced lyrics for your
 | Spotify | ✅ Working |
 | Fooyin | ✅ Working |
 | VLC | ✅ Working |
-| YouTube Music (Browser) | ⚠️ In progress |
+| YouTube (Browser) | ⚠️ In progress |
+| YouTube Music (Browser) | ✅ Working |
 | Any MPRIS2-compatible player | ✅ Should work |
 
 ## How It Works
