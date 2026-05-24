@@ -2,6 +2,7 @@ import logging
 import sys
 import asyncio
 from pathlib import Path
+import signal
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
@@ -52,18 +53,28 @@ async def main():
             engine.rootContext().setContextProperty("lyricsProvider", provider)
             logger.info("✓ QML Context Properties set")
 
-            qml_path = str(ROOT_DIR / "dev" / "AppWindow.qml")  # ← updated path
+            qml_path = str(ROOT_DIR / "dev" / "AppWindow.qml")
             engine.load(qml_path)
             if not engine.rootObjects():
                 logger.error("✗ QML failed to load. Check AppWindow.qml syntax.")
                 return
 
             stop_event = asyncio.Future()
-            QGuiApplication.instance().aboutToQuit.connect(
-                lambda: stop_event.set_result(True)
-            )
-            logger.info("Application is running. Monitoring media...")
+
+            def on_quit():
+                if not stop_event.done():
+                    stop_event.set_result(True)
+
+            QGuiApplication.instance().aboutToQuit.connect(on_quit)
+            loop = asyncio.get_event_loop()
+            loop.add_signal_handler(signal.SIGTERM, on_quit)
+            loop.add_signal_handler(signal.SIGINT, on_quit)
+
             await stop_event
+
+            provider.clear()
+            await asyncio.sleep(0.5)
+
         finally:
             await runner.cleanup()
 

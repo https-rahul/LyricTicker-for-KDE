@@ -24,5 +24,5 @@ class LyricsManager:
                 logger.error(f"✗ {source.name} failed with error: {e}, trying next...")
                 continue
 
-        logger.warning("All lyrics sources exhausted — no synced lyrics found")
+        logger.warning("All lyrics sources exhausted, no synced lyrics found")
         return None

@@ -150,3 +150,10 @@ class LyricsProvider(QObject):
     @Property(str, notify=currentIndexChanged)
     def current_lyric(self):
         return self._current_lyric
+
+    def clear(self):
+        self._current_lyric = ""
+        self._current_index = -1
+        self._last_cached_lyric = ""
+        self._write_to_cache("")
+        self.currentIndexChanged.emit()
