@@ -11,5 +11,4 @@ class BaseLyricsProvider(ABC):
 
     @abstractmethod
     async def fetch_lyrics(self, track: TrackData) -> str | None:
-
         raise NotImplementedError
