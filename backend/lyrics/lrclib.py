@@ -1,4 +1,3 @@
-# backend/lyrics/lrclib.py
 import aiohttp
 import logging
 from backend.lyrics.base import BaseLyricsProvider

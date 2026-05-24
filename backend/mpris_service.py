@@ -5,7 +5,6 @@ from backend.models import TrackData
 
 logger = logging.getLogger(__name__)
 
-
 class MPRISService:
     def __init__(self, bus):
         self.bus = bus
