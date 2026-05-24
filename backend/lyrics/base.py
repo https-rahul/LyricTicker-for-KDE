@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from backend.models import TrackData
 
-
 class BaseLyricsProvider(ABC):
 
     @property

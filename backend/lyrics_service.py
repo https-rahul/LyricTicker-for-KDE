@@ -3,7 +3,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
 class LyricsService:
     def __init__(self):
         self.base_url = "https://lrclib.net/api/get"

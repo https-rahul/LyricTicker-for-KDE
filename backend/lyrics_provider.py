@@ -17,14 +17,14 @@ class LyricsProvider(QObject):
     def __init__(self, mpris_service: MPRISService, lyrics_manager: LyricsManager):
         super().__init__()
         self.mpris = mpris_service
-        self.lyrics_api = lyrics_manager          # ← renamed
+        self.lyrics_api = lyrics_manager
 
         self._lyrics_lines = []
         self._timestamped_lyrics = []
         self._current_index = -1
         self._current_lyric = ""
         self._last_track_id = ""
-        self._last_cached_lyric = ""              # ← audit fix #12
+        self._last_cached_lyric = ""
 
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_state)
@@ -65,7 +65,7 @@ class LyricsProvider(QObject):
             self.lyricsLinesChanged.emit()
 
             loop = asyncio.get_event_loop()
-            loop.create_task(self.fetch_new_song_lyrics(track))  # ← audit fix #10
+            loop.create_task(self.fetch_new_song_lyrics(track))
             return
 
         if not self._timestamped_lyrics:
@@ -78,7 +78,7 @@ class LyricsProvider(QObject):
             else:
                 break
 
-        if new_index != self._current_index and new_index >= 0:  # ← removed dead "Loading lyrics..." check
+        if new_index != self._current_index and new_index >= 0:
             self._current_index = new_index
             self._current_lyric = self._timestamped_lyrics[new_index][1]
             self.currentIndexChanged.emit()
@@ -86,7 +86,6 @@ class LyricsProvider(QObject):
 
     async def fetch_new_song_lyrics(self, track: TrackData):
         try:
-            # Direct await — no run_in_executor needed, lrclib.py is now fully async
             raw_lyrics = await self.lyrics_api.fetch_lyrics(track)
 
             if raw_lyrics:
@@ -96,8 +95,6 @@ class LyricsProvider(QObject):
                     self._lyrics_lines = [l for _, l in self._timestamped_lyrics]
                     logger.info("✓ Synced lyrics loaded successfully")
                 else:
-                    # No synced lyrics — manager already filters plain text
-                    # so this means the LRC was malformed
                     logger.warning("Lyrics returned but no timestamps found — skipping")
                     self._timestamped_lyrics = []
                     self._lyrics_lines = []
@@ -133,7 +130,6 @@ class LyricsProvider(QObject):
 
     def _write_to_cache(self, text: str):
         try:
-            # Only write if lyric actually changed — audit fix #12
             if text == self._last_cached_lyric:
                 return
             self._last_cached_lyric = text

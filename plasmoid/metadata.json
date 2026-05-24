@@ -3,7 +3,7 @@
   "KPlugin": {
     "Id": "org.rahul.lyricticker",
     "Name": "Lyric Ticker",
-    "Description": "Displays currently playing song lyrics",
+    "Description": "This widget displays the lyrics of tracks from Spotify, YouTube Music, VLC and other local players",
     "Version": "0.1.0",
     "Website": "https://github.com/https-rahul/LyricTicker-for-KDE",
     "Category": "Multimedia",
