@@ -6,9 +6,10 @@ from PySide6.QtCore import QObject, Signal, Property, QTimer
 from backend.models import TrackData
 from backend.mpris_service import MPRISService
 from backend.lyrics.manager import LyricsManager
+from backend.constants import CACHE_FILE
 
 logger = logging.getLogger(__name__)
-CACHE_FILE = os.path.expanduser("~/.cache/lyricticker/current.txt")
+CACHE_FILE = os.path.expanduser(CACHE_FILE)
 
 class LyricsProvider(QObject):
     lyricsLinesChanged = Signal()
