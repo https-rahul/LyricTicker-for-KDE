@@ -200,7 +200,7 @@ class YourSourceProvider(BaseLyricsProvider):
 - [ ] QQ Music lyrics source
 - [ ] Kugou lyrics source
 - [ ] Plasmoid configuration dialog (font size, colour, source priority)
-- [ ] YouTube Music support
+- [ ] YouTube from browser support
 - [ ] Windows support via SMTC API
 
 ---
