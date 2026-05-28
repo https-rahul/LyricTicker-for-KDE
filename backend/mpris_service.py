@@ -58,8 +58,20 @@ class MPRISService:
             artists = self._unwrap(meta.get('xesam:artist', ['Unknown']))
             artist = artists[0] if isinstance(artists, list) and artists else "Unknown"
 
+            PLAYER_NAMES = {
+                "spotify": "Spotify",
+                "firefox": "Firefox",
+                "chromium": "Chromium",
+                "brave": "Brave",
+                "vlc": "VLC",
+                "fooyin": "Fooyin",
+                "elisa": "Elisa",
+            }
+            raw = name.split('.')[-1].lower()
+            player_display = PLAYER_NAMES.get(raw, raw.capitalize())
+
             return TrackData(
-                player=name.split('.')[-1].capitalize(),
+                player=player_display,
                 title=self._unwrap(meta.get('xesam:title', 'Unknown')),
                 artist=artist,
                 album=self._unwrap(meta.get('xesam:album', 'Unknown')),
@@ -67,5 +79,6 @@ class MPRISService:
                 position=pos / 1_000_000,
                 status=status
             )
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Could not query MPRIS service for player:{name} {e}")
             return None

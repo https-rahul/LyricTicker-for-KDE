@@ -14,4 +14,4 @@ class TrackData:
 
     @classmethod
     def empty(cls):
-        return cls("None", "Unknown", "Unknown", "Unknown", 0.0, 0.0, "Stopped")
+        return cls(None, "Unknown", "Unknown", "Unknown", 0.0, 0.0, "Stopped")

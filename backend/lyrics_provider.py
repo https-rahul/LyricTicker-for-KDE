@@ -26,9 +26,9 @@ class LyricsProvider(QObject):
         self._current_lyric = ""
         self._last_track_id = ""
         self._last_cached_lyric = ""
-
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_state)
+        self._fetch_task = None
 
     def update_state(self):
         try:
@@ -65,8 +65,12 @@ class LyricsProvider(QObject):
             self.currentIndexChanged.emit()
             self.lyricsLinesChanged.emit()
 
+            if self._fetch_task and not self._fetch_task.done():
+                self._fetch_task.cancel()
+                logger.debug("Cancelled previous fetch task")
+
             loop = asyncio.get_event_loop()
-            loop.create_task(self.fetch_new_song_lyrics(track))
+            self._fetch_task = loop.create_task(self.fetch_new_song_lyrics(track))
             return
 
         if not self._timestamped_lyrics:
@@ -107,6 +111,10 @@ class LyricsProvider(QObject):
                 self._current_index = -1
                 self.currentIndexChanged.emit()
                 self._write_to_cache(self._current_lyric)
+
+        except asyncio.CancelledError:
+            logger.debug(f"Fetch cancelled for {track.artist}-{track.title}")
+            return
 
         except Exception as e:
             logger.error(f"Failed to fetch lyrics: {e}")
