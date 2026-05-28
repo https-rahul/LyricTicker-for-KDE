@@ -51,7 +51,7 @@ PlasmoidItem {
                     }
                 }
             }
-            xhr.open("GET", "http://127.0.0.1:5000/", true)
+            xhr.open("GET", "http://127.0.0.1:5000/", true)                                             // Port must match HTTP_PORT in backend/constants.py
             xhr.send()
         }
     }

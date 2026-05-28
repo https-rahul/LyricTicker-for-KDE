@@ -17,6 +17,7 @@ from aiohttp import web
 from backend.mpris_service import MPRISService
 from backend.lyrics_provider import LyricsProvider
 from backend.lyrics.manager import LyricsManager
+from backend.constants import HTTP_HOST, HTTP_PORT
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -44,7 +45,7 @@ async def main():
         runner = web.AppRunner(server_app)
         await runner.setup()
         try:
-            site = web.TCPSite(runner, '127.0.0.1', 5000)
+            site = web.TCPSite(runner, HTTP_HOST, HTTP_PORT)
             await site.start()
             logger.info("Integrated server listening on port 5000")
 
