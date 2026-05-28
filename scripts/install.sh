@@ -88,12 +88,20 @@ echo -e "${GREEN}✓ Service installed and enabled${NC}"
 echo ""
 echo -e "${YELLOW}[5/5] Reloading Plasma shell...${NC}"
 if command -v kquitapp6 &>/dev/null; then
-    kquitapp6 plasmashell && kstart6 plasmashell &
+    kquitapp6 plasmashell
+    sleep 2
+
+    if command -v kstart6 &>/dev/null; then
+        kstart6 plasmashell &
+    elif command -v kstart &>/dev/null; then
+        kstart plasmashell &
+    else
+        plasmashell &
+    fi
     echo -e "${GREEN}✓ Plasma shell reloading...${NC}"
 else
     echo -e "${YELLOW}⚠ Could not reload Plasma shell automatically.${NC}"
-    echo "  Please log out and back in, or run:"
-    echo "  kquitapp6 plasmashell && kstart6 plasmashell"
+    echo "  Please log out and back in."
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
