@@ -16,10 +16,10 @@ A lightweight KDE Plasma 6 widget that displays real-time synced lyrics for your
 - 🌐 Multiple lyrics sources (LRCLib, more coming soon)
 - ⚡ Lightweight async Python backend
 
-![LyricTicker in panel](screenshots/screenshot_1.png)
-![LyricTicker in panel](screenshots/screenshot_2.png)
-![LyricTicker in panel](screenshots/screenshot_3.png)
-![LyricTicker in panel](screenshots/screenshot_4.png)
+![LyricTicker in panel](screenshots/screenshot_10.png)
+![LyricTicker in panel](screenshots/screenshot_12.png)
+![LyricTicker in panel](screenshots/screenshot_8.png)
+![LyricTicker in panel](screenshots/screenshot_7.png)
 ![LyricTicker in panel](screenshots/screenshot_5.png)
 ![LyricTicker in panel](screenshots/screenshot_6.png)
 
