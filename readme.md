@@ -10,11 +10,11 @@ A lightweight KDE Plasma 6 widget that displays real-time synced lyrics for your
 
 ## Features
 
-- 🎵 Real-time synced lyrics with millisecond accuracy
-- 🎨 Lives in your KDE Plasma panel as a widget
-- 🔍 Automatic track detection via MPRIS2/D-Bus
-- 🌐 Multiple lyrics sources (LRCLib, more coming soon)
-- ⚡ Lightweight async Python backend
+- Real-time synced lyrics with millisecond accuracy
+- Lives in your KDE Plasma panel as a widget
+- Automatic track detection via MPRIS2/D-Bus
+- Multiple lyrics sources (LRCLib, more coming soon)
+- Lightweight async Python backend
 
 ![LyricTicker in panel](screenshots/screenshot_10.png)
 ![LyricTicker in panel](screenshots/screenshot_12.png)
