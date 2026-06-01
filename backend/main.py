@@ -3,6 +3,9 @@ import sys
 import asyncio
 from pathlib import Path
 import signal
+import os
+
+DEV_MODE = os.getenv("LYRICTICKER_DEV", "0") == "1"
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 if str(ROOT_DIR) not in sys.path:
@@ -13,14 +16,13 @@ from PySide6.QtQml import QQmlApplicationEngine
 from dbus_next.aio import MessageBus
 from qasync import QEventLoop
 from aiohttp import web
-
 from backend.mpris_service import MPRISService
 from backend.lyrics_provider import LyricsProvider
 from backend.lyrics.manager import LyricsManager
 from backend.constants import HTTP_HOST, HTTP_PORT
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.DEBUG if DEV_MODE else logging.WARNING,
     format="%(asctime)s | %(levelname)-8s | %(name)s:%(funcName)s:%(lineno)d - %(message)s",
     handlers=[logging.StreamHandler()],
 )
@@ -36,7 +38,7 @@ async def main():
         lyrics_manager = LyricsManager()
         logger.info("MPRISService initialised")
 
-        provider = LyricsProvider(mpris_service, lyrics_manager)  # ← updated
+        provider = LyricsProvider(mpris_service, lyrics_manager)
 
         server_app = web.Application()
         server_app['lyrics_provider'] = provider
@@ -47,18 +49,22 @@ async def main():
         try:
             site = web.TCPSite(runner, HTTP_HOST, HTTP_PORT)
             await site.start()
-            logger.info("Integrated server listening on port 5000")
+            logger.info(f"Server listening on {HTTP_HOST}:{HTTP_PORT}")
 
-            engine = QQmlApplicationEngine()
             provider.timer.start(200)
-            engine.rootContext().setContextProperty("lyricsProvider", provider)
-            logger.info("✓ QML Context Properties set")
 
-            qml_path = str(ROOT_DIR / "dev" / "AppWindow.qml")
-            engine.load(qml_path)
-            if not engine.rootObjects():
-                logger.error("✗ QML failed to load. Check AppWindow.qml syntax.")
-                return
+            # launch debug window only on DEV MODE
+            if DEV_MODE:
+                logger.info("✓ DEV MODE: launching debug AppWindow")
+                engine = QQmlApplicationEngine()
+                engine.rootContext().setContextProperty("lyricsProvider", provider)
+                qml_path = str(ROOT_DIR / "dev" / "AppWindow.qml")
+                engine.load(qml_path)
+                if not engine.rootObjects():
+                    logger.error("✗ QML failed to load. Check AppWindow.qml syntax.")
+                    return
+            else:
+                logger.warning("✓ PROD MODE: running headless without AppWindow")
 
             stop_event = asyncio.Future()
 
@@ -72,7 +78,6 @@ async def main():
             loop.add_signal_handler(signal.SIGINT, on_quit)
 
             await stop_event
-
             provider.clear()
             await asyncio.sleep(0.5)
 

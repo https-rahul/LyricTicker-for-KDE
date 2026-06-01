@@ -8,7 +8,7 @@ ApplicationWindow {
     visible: true
     width: 500
     height: 180
-    title: "finally bangya BCCCC"
+    title: "LyricTicker DEV"
 
     Rectangle {
         anchors.fill: parent
