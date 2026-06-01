@@ -80,4 +80,5 @@ app/toDelete/CMakeLists.txt.user
 .rcc/
 .uic/
 /build*/
+/.idea
 .idea/LyricTicker.iml

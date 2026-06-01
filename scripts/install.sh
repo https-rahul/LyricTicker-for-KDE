@@ -66,18 +66,24 @@ cat > "$SERVICE_FILE" <<EOF
 [Unit]
 Description=LyricTicker Backend
 Documentation=https://github.com/https-rahul/LyricTicker-for-KDE
-After=graphical-session.target network.target
+After=plasma-plasmashell.service
+Wants=plasma-plasmashell.service
 
 [Service]
 Type=simple
+ExecStartPre=/bin/sleep 5
 ExecStart=$(which python3) $BACKEND_MAIN
 Restart=on-failure
-RestartSec=5
+RestartSec=10
+StartLimitBurst=5
+StartLimitIntervalSec=60
 Environment=DISPLAY=:0
+Environment=WAYLAND_DISPLAY=wayland-0
 Environment=DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus
+Environment=QT_QPA_PLATFORM=wayland
 
 [Install]
-WantedBy=default.target
+WantedBy=plasma-plasmashell.service
 EOF
 
 systemctl --user daemon-reload
@@ -88,7 +94,7 @@ echo -e "${GREEN}✓ Service installed and enabled${NC}"
 echo ""
 echo -e "${YELLOW}[5/5] Reloading Plasma shell...${NC}"
 if command -v kquitapp6 &>/dev/null; then
-    kquitapp6 plasmashell
+    kquitapp6 plasmashell || true
     sleep 2
 
     if command -v kstart6 &>/dev/null; then
@@ -112,10 +118,14 @@ echo -e "${GREEN}╚════════════════════
 echo ""
 echo "Next steps:"
 echo "  1. Start the backend:  systemctl --user start lyricticker"
-echo "  2. Add the widget:     Right-click panel → Add Widgets → search 'Lyric Ticker'"
+echo "  2. Add the widget:     Right-click panel → Add Widgets → search 'LyricTicker'"
+
 echo ""
 echo "To check backend status:"
 echo "  systemctl --user status lyricticker"
+echo ""
+echo "To disable the backend from autostart:"
+echo "  systemctl --user stop lyricticker"
 echo ""
 echo "To view backend logs:"
 echo "  journalctl --user -u lyricticker -f"
